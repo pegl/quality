@@ -1,0 +1,41 @@
+#!/bin/bash
+
+REPOS=$1
+TXN=$2
+AWK=/usr/bin/awk
+SVNLOOK="/usr/bin/svnlook"
+JSON_CHECKER=/usr/bin/json_pp
+
+JSON_FILE_EXTENSION="json"
+
+# Figure out what directories have changed using svnlook.
+FILES=`${SVNLOOK} changed ${REPOS} -t ${TXN} | ${AWK} '{ print $2 }'` > /dev/null
+
+for FILE in $FILES; do
+    #Get the base Filename to extract its extension
+    NAME=`basename "$FILE"`
+
+    #Get the extension of the current file
+    # this should take the last 3 characters of the file
+    # instead of from the first . character
+    filename=$(basename "$NAME")
+    extension="${filename##*.}" 
+
+    # if this is a json extension test the syntax
+    if [[ $JSON_FILE_EXTENSION == "$extension" ]]; then
+        echo "" 1>&2
+        echo "$JSON_CHECKER output:" 1>&2
+        $JSON_CHECKER < $NAME > /dev/null
+        if [ $? -ne 0 ]; then
+            echo "" 1>&2
+            echo "This commit has been rejected because $NAME contains syntax errors." 1>&2
+            echo "Please check the json and try again. Thank you, come again :)" 1>&2
+            echo "" 1>&2
+            echo "Affected files:" 1>&2
+            echo $NAME 1>&2
+            exit 1
+        fi
+    fi
+
+done
+exit 0
